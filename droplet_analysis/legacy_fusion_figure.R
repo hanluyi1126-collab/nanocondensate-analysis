@@ -6,10 +6,13 @@ suppressPackageStartupMessages({
   library(ragg)
 })
 
-out_dir <- "outputs/fusion"
+script_path <- sub("^--file=", "", grep("^--file=", commandArgs(), value = TRUE))
+if (!file.exists(script_path)) script_path <- gsub("~+~", " ", script_path, fixed = TRUE)
+module_dir <- dirname(normalizePath(script_path, mustWork = TRUE))
+out_dir <- file.path(module_dir, "outputs", "fusion")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-# Physical assumptions: ideal CO2-free water at 25 C.
+# Supplementary Table S1. SI units throughout, except where the unit is in the name.
 kB <- 1.380649e-23
 T <- 298.15
 kBT <- kB * T
@@ -67,6 +70,8 @@ for (j in seq_along(psi_levels)) {
   )
 }
 fusion_df <- do.call(rbind, fusion_list)
+# These historical column names assume unit post-contact fusion probability.
+# The display floor applies only to this diagnostic plot.
 fusion_df$log10_fusion_display <- pmax(fusion_df$log10_fusion_s, -50)
 
 write.csv(
@@ -87,7 +92,7 @@ COL <- c(
 )
 
 theme_set(
-  theme_classic(base_size = 7.2, base_family = "Arial") +
+  theme_classic(base_size = 7.2, base_family = "Helvetica") +
     theme(
       axis.line = element_line(linewidth = 0.35, colour = COL["ink"]),
       axis.ticks = element_line(linewidth = 0.35, colour = COL["ink"]),
@@ -136,7 +141,7 @@ p_a <- ggplot() +
   geom_point(data = charge_pts, aes(x, y), shape = 21, size = 2.2,
              stroke = 0.45, fill = "white", colour = COL["blue"]) +
   geom_text(data = charge_pts, aes(x, y, label = "+"),
-            size = 2.1, family = "Arial", colour = COL["blue"]) +
+            size = 2.1, family = "Helvetica", colour = COL["blue"]) +
   annotate("segment", x = 4.00, xend = 3.58, y = 1.62, yend = 1.62,
            linewidth = 0.75, colour = COL["blue"],
            arrow = arrow(length = unit(1.7, "mm"), type = "closed")) +
@@ -158,30 +163,30 @@ p_a <- ggplot() +
   annotate("segment", x = 9.62, xend = 9.80, y = 0.94, yend = 0.82,
            linetype = 2, linewidth = 0.35, colour = COL["grey"],
            arrow = arrow(length = unit(1.1, "mm"))) +
-  annotate("text", x = 1.80, y = 2.57, label = "Small droplets (50–200 nm)",
-           family = "Arial", fontface = "bold", size = 2.8, colour = COL["ink"]) +
+  annotate("text", x = 1.80, y = 2.57, label = "Small radii (50-200 nm)",
+           family = "Helvetica", fontface = "bold", size = 2.8, colour = COL["ink"]) +
   annotate("text", x = 1.80, y = 0.61,
-           label = "Fast diffusion • frequent encounters",
-           family = "Arial", size = 2.35, colour = COL["grey"]) +
+           label = "Fast diffusion, frequent encounters",
+           family = "Helvetica", size = 2.35, colour = COL["grey"]) +
   annotate("text", x = 4.76, y = 2.53, label = "Charged interface",
-           family = "Arial", fontface = "bold", size = 2.8, colour = COL["ink"]) +
+           family = "Helvetica", fontface = "bold", size = 2.8, colour = COL["ink"]) +
   annotate("text", x = 4.76, y = 0.61,
-           label = "Positive barrier • collision ≠ fusion",
-           family = "Arial", size = 2.35, colour = COL["blue"]) +
-  annotate("text", x = 8.33, y = 2.57, label = "Large droplets (0.5–2 µm)",
-           family = "Arial", fontface = "bold", size = 2.8, colour = COL["ink"]) +
+           label = "Repulsive approach potential",
+           family = "Helvetica", size = 2.35, colour = COL["blue"]) +
+  annotate("text", x = 8.33, y = 2.57, label = "Large radii (0.5-2 µm)",
+           family = "Helvetica", fontface = "bold", size = 2.8, colour = COL["ink"]) +
   annotate("text", x = 8.33, y = 0.61,
-           label = "Slow diffusion • rare encounters",
-           family = "Arial", size = 2.35, colour = COL["grey"]) +
+           label = "Slow diffusion, rare encounters",
+           family = "Helvetica", size = 2.35, colour = COL["grey"]) +
   annotate("segment", x = 0.55, xend = 9.55, y = 2.96, yend = 2.96,
            linewidth = 0.55, colour = COL["ink"],
            arrow = arrow(length = unit(1.7, "mm"), type = "closed")) +
   annotate("text", x = 5.05, y = 3.15,
-           label = "Increasing droplet radius, R: 50 nm → 2 µm",
-           family = "Arial", size = 2.6, colour = COL["ink"]) +
+           label = "Droplet radius increases from 50 nm to 2 µm",
+           family = "Helvetica", size = 2.6, colour = COL["ink"]) +
   coord_cartesian(xlim = c(0.2, 10), ylim = c(0.35, 3.30), clip = "off") +
-  labs(title = "a   Size-dependent encounter and fusion of liquid condensates in pure water") +
-  theme_void(base_family = "Arial", base_size = 7.2) +
+  labs(title = "a   Droplet encounters in the idealized water model") +
+  theme_void(base_family = "Helvetica", base_size = 7.2) +
   theme(
     plot.title = element_text(size = 8, face = "bold", hjust = 0, margin = margin(b = 2)),
     plot.margin = margin(5, 4, 0, 4)
@@ -196,7 +201,7 @@ p_b <- ggplot(base_df, aes(radius_um, encounter_s)) +
   scale_x_log10(breaks = size_breaks, labels = size_breaks) +
   scale_y_log10() +
   annotate("text", x = 0.11, y = 0.7, label = expression(nu[enc] %prop% R^{-3}),
-           family = "Arial", size = 2.5, colour = COL["teal"]) +
+           family = "Helvetica", size = 2.5, colour = COL["teal"]) +
   labs(title = "b   Brownian encounters", x = "Droplet radius, R (µm)",
        y = expression("Encounter frequency, "*nu[enc]*" (s"^{-1}*")"))
 
@@ -207,8 +212,8 @@ p_c <- ggplot(bar_df, aes(radius_um, barrier_kBT, colour = psi)) +
   scale_colour_manual(values = c("10 mV" = unname(COL["teal"]), "25 mV" = unname(COL["blue"]))) +
   scale_x_log10(breaks = size_breaks, labels = size_breaks) +
   annotate("text", x = 0.065, y = 875, label = "Barrier > 0 for all R",
-           family = "Arial", size = 2.35, hjust = 0, colour = COL["coral"]) +
-  labs(title = "c   Electrostatic fusion barrier", x = "Droplet radius, R (µm)",
+           family = "Helvetica", size = 2.35, hjust = 0, colour = COL["coral"]) +
+  labs(title = "c   Formal HHF contact energy", x = "Droplet radius, R (µm)",
        y = expression("Positive barrier, "*Delta*G[el]^ddagger*" / "*k[B]*T)) +
   theme(legend.position = "top")
 
@@ -221,7 +226,7 @@ p_d <- ggplot(base_df, aes(radius_um, deltaG_cap_kBT)) +
     breaks = c(-5000, -1000, -100, -10, -1, 0)
   ) +
   annotate("text", x = 0.07, y = -1300, label = expression(Delta*G[gamma] < 0),
-           family = "Arial", size = 2.5, hjust = 0, colour = COL["coral"]) +
+           family = "Helvetica", size = 2.5, hjust = 0, colour = COL["coral"]) +
   labs(title = "d   Capillary free-energy change", x = "Droplet radius, R (µm)",
        y = expression(Delta*G[gamma]*" / "*k[B]*T))
 
@@ -237,12 +242,12 @@ p_e <- ggplot(fusion_df, aes(radius_um, log10_fusion_display, colour = psi)) +
   )) +
   scale_x_log10(breaks = size_breaks, labels = size_breaks) +
   scale_y_continuous(breaks = c(-50, -40, -20, 0, 2), limits = c(-50, 2.8)) +
-  annotate("text", x = 0.055, y = -35, label = "Effectively arrested",
-           family = "Arial", size = 2.35, hjust = 0, colour = COL["grey"]) +
-  annotate("text", x = 1.85, y = -48, label = "Values below 10⁻⁵⁰ s⁻¹ are clipped",
-           family = "Arial", size = 2.15, hjust = 1, colour = COL["grey"]) +
-  labs(title = "e   From encounter to successful fusion", x = "Droplet radius, R (µm)",
-       y = expression(log[10]*" fusion frequency (s"^{-1}*")")) +
+  annotate("text", x = 0.055, y = -35, label = "Low model rates",
+           family = "Helvetica", size = 2.35, hjust = 0, colour = COL["grey"]) +
+  annotate("text", x = 1.85, y = -48, label = "Display floor at -50",
+           family = "Helvetica", size = 2.15, hjust = 1, colour = COL["grey"]) +
+  labs(title = "e   Idealized contact arrival", x = "Droplet radius, R (µm)",
+       y = expression(log[10](nu[contact]/s^{-1}))) +
   theme(legend.position = "top")
 
 bottom_row <- p_b + p_c + p_d + plot_layout(widths = c(1, 1, 1))
@@ -250,11 +255,11 @@ final_plot <- p_a / bottom_row / p_e +
   plot_layout(heights = c(1.15, 1.0, 1.0)) +
   plot_annotation(
     caption = paste0(
-      "Assumptions: 25 °C, CO₂-free pure water (λD = ", sprintf("%.2f", lambda_D * 1e6),
-      " µm), φ = 1%, γ = 1 µN m⁻¹. Constant-potential HHF/Fuchs model; no van der Waals, steric, hydration or film-drainage terms."
+      "Assumptions: 25 °C, idealized water (Debye length = ", sprintf("%.2f", lambda_D * 1e6),
+      " µm), volume fraction 1%, interfacial tension 1 µN/m. Constant-potential HHF/Fuchs model; no van der Waals, steric, hydration or film-drainage terms."
     ),
     theme = theme(
-      plot.caption = element_text(family = "Arial", size = 5.8, colour = COL["grey"], hjust = 0),
+      plot.caption = element_text(family = "Helvetica", size = 5.8, colour = COL["grey"], hjust = 0),
       plot.margin = margin(3, 4, 3, 4)
     )
   )
@@ -269,8 +274,8 @@ svglite::svglite(paste0(base, ".svg"), width = w, height = h)
 print(final_plot)
 dev.off()
 
-grDevices::quartz(file = paste0(base, ".pdf"), type = "pdf",
-                  width = w, height = h, family = "Arial")
+grDevices::pdf(file = paste0(base, ".pdf"), width = w, height = h,
+               family = "Helvetica", useDingbats = FALSE)
 print(final_plot)
 dev.off()
 

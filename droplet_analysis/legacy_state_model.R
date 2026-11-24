@@ -2,7 +2,10 @@
 
 suppressPackageStartupMessages(library(ggplot2))
 
-out_dir <- "outputs/state"
+script_path <- sub("^--file=", "", grep("^--file=", commandArgs(), value = TRUE))
+if (!file.exists(script_path)) script_path <- gsub("~+~", " ", script_path, fixed = TRUE)
+module_dir <- dirname(normalizePath(script_path, mustWork = TRUE))
+out_dir <- file.path(module_dir, "outputs", "state")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 # Generic, dimensionless screening model. These are provisional assumptions,
@@ -16,23 +19,22 @@ grid <- expand.grid(
   sticker_fraction = seq(0, 0.60, by = 0.005),
   charged_fraction = seq(0, 0.60, by = 0.005)
 )
-grid <- subset(grid, sticker_fraction + charged_fraction <= 0.85)
+# Use integer grid indices for the inclusive boundary in Supplementary Eq. S10.
+# Retain the original floating-point selection to reproduce the archived figure.
+grid$archived <- with(grid, sticker_fraction + charged_fraction <= 0.85)
+grid <- subset(grid, round(200 * sticker_fraction) + round(200 * charged_fraction) <= 170)
 
-# 1) Condensation: non-electrostatic stickers dominate; residual opposite-charge
-# pairing contributes weakly to cohesion.
+# Prescribed cohesion, repulsion and connectivity scores (Supplementary Eq. S10).
 grid$cohesion_index <- with(grid,
   4.0 * sticker_fraction +
   1.2 * charged_fraction * (1 - charge_asymmetry^2) * screening
 )
 
-# 2) Anti-fusion: net surface charge, modular segregation and ionic screening.
 grid$surface_charge_index <- with(grid,
   5.0 * charged_fraction * charge_asymmetry * charge_blockiness * screening
 )
 grid$barrier_kBT <- 200 * grid$surface_charge_index^2
 
-# 3) Solidification: sticker connectivity plus internal complementary-charge
-# crosslinking. High charge asymmetry reduces complementary ionic pairing.
 grid$network_index <- with(grid,
   3.0 * sticker_fraction^2 +
   6.0 * charged_fraction^2 * (1 - charge_asymmetry^2)
@@ -48,6 +50,13 @@ grid$state <- factor(grid$state,
   levels = c("Dispersed", "Coarsening droplets", "Nanocondensate window", "Gel/solid"))
 grid$state_code <- as.numeric(grid$state)
 
+write.csv(subset(grid, !archived, select = -archived),
+          file.path(out_dir, "additional_boundary_points.csv"), row.names = FALSE)
+class_counts <- data.frame(state = levels(grid$state),
+                           archived = as.integer(table(grid$state[grid$archived])),
+                           inclusive_grid = as.integer(table(grid$state)))
+write.csv(class_counts, file.path(out_dir, "grid_class_counts.csv"), row.names = FALSE)
+grid <- subset(grid, archived, select = -archived)
 write.csv(grid, file.path(out_dir, "nanocondensate_window_grid.csv"), row.names = FALSE)
 
 target <- subset(grid, state == "Nanocondensate window")
@@ -65,11 +74,7 @@ cols <- c("Dispersed" = "#DDE4E8", "Coarsening droplets" = "#F0BE70",
           "Nanocondensate window" = "#4C9B83", "Gel/solid" = "#76537D")
 
 p <- ggplot(grid, aes(sticker_fraction, charged_fraction)) +
-  geom_contour_filled(
-    aes(z = state_code),
-    breaks = c(0.5, 1.5, 2.5, 3.5, 4.5),
-    show.legend = TRUE
-  ) +
+  geom_raster(aes(fill = state)) +
   geom_contour(aes(z = cohesion_index), breaks = 1, color = "#3C4650",
                linewidth = 0.35, linetype = "dashed") +
   geom_contour(aes(z = barrier_kBT), breaks = c(10, 20), color = "white",
@@ -77,17 +82,17 @@ p <- ggplot(grid, aes(sticker_fraction, charged_fraction)) +
   geom_contour(aes(z = network_index), breaks = 1, color = "black",
                linewidth = 0.45) +
   scale_fill_manual(
-    values = unname(cols),
-    labels = names(cols),
+    values = cols,
+    labels = c("Dispersed", "Coarsening", "Candidate window", "Network arrest"),
     drop = FALSE
   ) +
   coord_fixed(xlim = c(0, 0.6), ylim = c(0, 0.6), expand = FALSE) +
   labs(
-    title = "Predicted nanocondensate formation window",
-    subtitle = "Dashed: condensation threshold; white: 10/20 kBT fusion barriers; black: gelation threshold",
+    title = "Illustrative composition map",
+    subtitle = "Dashed: cohesion = 1; white: repulsion = 10, 20; black: network = 1",
     x = "Non-electrostatic sticker fraction",
     y = "Charged-component fraction",
-    fill = "Predicted state"
+    fill = "Assigned class"
   ) +
   theme_classic(base_size = 8, base_family = "sans") +
   theme(axis.line = element_line(linewidth = 0.35),
@@ -105,6 +110,6 @@ grDevices::pdf(file.path(out_dir, "nanocondensate_window.pdf"),
 print(p)
 dev.off()
 
-cat(sprintf("Predicted target window: sticker %.3f--%.3f; charge %.3f--%.3f\n",
+cat(sprintf("Candidate grid range: sticker %.3f--%.3f; charge %.3f--%.3f\n",
             min(target$sticker_fraction), max(target$sticker_fraction),
             min(target$charged_fraction), max(target$charged_fraction)))
